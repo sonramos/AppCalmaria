@@ -1,5 +1,6 @@
  package com.example.layoutbasico
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -42,10 +42,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -72,11 +77,13 @@ class MainActivity : ComponentActivity() {
  // Pesquisa
 @Composable
 fun SearchBar(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit
 ) {
         TextField(
-            value = "",
-            onValueChange = {},
+            value = searchText,
+            onValueChange = onSearchTextChange,
             leadingIcon = {
                 Icon(imageVector = Icons.Default.Search,
                     contentDescription = null)
@@ -91,6 +98,7 @@ fun SearchBar(
             modifier = modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
+                .padding(vertical = 8.dp)
         )
 }
 
@@ -98,7 +106,8 @@ fun SearchBar(
  @Composable
  fun SearchBarPreview() {
      LayoutBasicoTheme {
-         SearchBar()
+         var searchText by remember { mutableStateOf("") }
+         SearchBar(searchText = searchText, onSearchTextChange = { searchText = it} )
      }
  }
 
@@ -186,7 +195,8 @@ fun SearchBar(
 
 // Linha
 @Composable
-fun AlignYourBodyRow(
+private fun AlignYourBodyRow(
+    items: List<DrawableStringPair>,
     modifier: Modifier = Modifier
 ) {
     LazyRow (
@@ -194,17 +204,35 @@ fun AlignYourBodyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = modifier
     ) {
-        items(alignYourBodyData){
+        items(items){
             item -> AlignYourBodyElement(item.drawable, item.text)
          }
     }
 }
 
+
+ fun filterItems(
+     items: List<DrawableStringPair>,
+     searchText: String,
+     context: Context
+ ): List<DrawableStringPair> {
+     if (searchText.isEmpty()) return items
+
+     return items.filter { item ->
+         val itemText = context.getString(item.text).lowercase()
+         searchText.lowercase() in itemText
+     }
+ }
+
  @Preview(showBackground = true)
  @Composable
  fun AlignYourBodyRowPreview() {
+     val searchText by remember { mutableStateOf("") }
+     val context = LocalContext.current
+
+     val filteredItems = filterItems(alignYourBodyData, searchText, context)
      LayoutBasicoTheme {
-         AlignYourBodyRow()
+         AlignYourBodyRow(items = filteredItems)
      }
  }
 
@@ -258,22 +286,36 @@ fun AlignYourBodyRow(
  @Preview(showBackground = true)
  @Composable
  fun HomeSectionPreview() {
+     val searchText by remember { mutableStateOf("") }
+     val context = LocalContext.current
+
+     val filteredItems = filterItems(alignYourBodyData, searchText, context)
      LayoutBasicoTheme {
          HomeSection(R.string.align_your_body) {
-             AlignYourBodyRow()
+             AlignYourBodyRow(items = filteredItems)
          }
      }
  }
 
  @Composable
  fun HomeScreen(modifier: Modifier = Modifier) {
+     var searchText by remember { mutableStateOf("") }
+     val context = LocalContext.current
+
+     val filteredItems = filterItems(alignYourBodyData, searchText, context)
+
      Column (
          modifier.verticalScroll(rememberScrollState())
      ) {
          Spacer(Modifier.height(16.dp))
-         SearchBar(Modifier.height(16.dp))
+         SearchBar(
+             searchText = searchText,
+             onSearchTextChange = { searchText = it},
+             modifier = Modifier.padding(horizontal = 16.dp)
+         )
+         Spacer(Modifier.height(16.dp))
          HomeSection(R.string.align_your_body) {
-             AlignYourBodyRow()
+             AlignYourBodyRow(items = filteredItems)
          }
          HomeSection(R.string.favorite_collections) {
              FavoriteCollectionsGrid()
@@ -363,7 +405,7 @@ fun CalmariaApp() {
      R.drawable.fc6_nightly_wind_down to R.string.fc6_nightly_wind_down
  ).map { DrawableStringPair(it.first, it.second) }
 
- private data class DrawableStringPair(
+ data class DrawableStringPair(
      @DrawableRes val drawable: Int,
      @StringRes val text: Int
  )
